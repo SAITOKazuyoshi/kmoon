@@ -1,1 +1,240 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>月の軌道ナビゲーター - 釧路・米町</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet (Maps) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- SunCalc (Astronomy Calculations) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
+    <style>
+        #map { height: 100vh; width: 100%; }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .moon-line {
+            stroke-dasharray: 10, 10;
+            animation: dash 20s linear infinite;
+        }
+        @keyframes dash {
+            to { stroke-dashoffset: -100; }
+        }
+        /* Style date/time picker for dark mode */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white overflow-hidden">
 
+    <!-- UI Overlay -->
+    <div class="fixed top-4 left-4 z-[1000] w-72 md:w-80 space-y-4">
+        <div class="glass-panel p-5 rounded-2xl shadow-2xl">
+            <h1 class="text-xl font-bold mb-1 flex items-center gap-2">
+                <span>🌙</span> 月の軌道ナビ
+            </h1>
+            <p class="text-xs text-slate-400 mb-4">北海道釧路市米町 観測ポイント</p>
+
+            <div class="space-y-4">
+                <!-- Date Selector -->
+                <div class="space-y-1">
+                    <label class="text-[10px] uppercase tracking-wider text-slate-400">日付を選択</label>
+                    <input type="date" id="date-picker" 
+                        class="w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-sm text-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50">
+                </div>
+
+                <!-- Data Display -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-800/50 p-3 rounded-xl border border-white/5">
+                        <span class="block text-[10px] uppercase tracking-wider text-slate-400">高度 (Altitude)</span>
+                        <span id="alt-val" class="text-2xl font-mono font-bold text-yellow-400">0.0°</span>
+                    </div>
+                    <div class="bg-slate-800/50 p-3 rounded-xl border border-white/5">
+                        <span class="block text-[10px] uppercase tracking-wider text-slate-400">方位 (Azimuth)</span>
+                        <span id="azi-val" class="text-2xl font-mono font-bold text-blue-400">0.0°</span>
+                    </div>
+                </div>
+
+                <!-- Progress Bar for Altitude -->
+                <div class="relative pt-1">
+                    <div class="flex mb-2 items-center justify-between">
+                        <div>
+                            <span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-yellow-600 bg-yellow-200">
+                                垂直方向の高さ
+                            </span>
+                        </div>
+                        <div class="text-right">
+                            <span id="alt-pct" class="text-xs font-semibold inline-block text-yellow-400">0%</span>
+                        </div>
+                    </div>
+                    <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-slate-700">
+                        <div id="alt-bar" style="width:0%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-yellow-400 transition-all duration-500"></div>
+                    </div>
+                </div>
+
+                <!-- Time Slider -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs">
+                        <span>時刻を選択 (0時〜24時)</span>
+                        <span id="time-display" class="font-mono text-cyan-400 italic">12:00</span>
+                    </div>
+                    <input type="range" id="time-slider" min="0" max="23.9" step="0.1" value="12" 
+                        class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                    <div class="flex justify-between text-[10px] text-slate-500">
+                        <span>0:00</span>
+                        <button id="reset-now" class="hover:text-white transition-colors underline underline-offset-2">現在時刻に戻す</button>
+                        <span>24:00</span>
+                    </div>
+                </div>
+                
+                <div id="target-time-label" class="text-center text-[10px] text-slate-400 font-mono pt-2 border-t border-white/5">
+                    表示中の日時: <br>
+                    <span id="full-date-string" class="text-slate-200 text-sm">----/--/-- --:--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Moon Phase Card -->
+        <div id="moon-phase-card" class="glass-panel p-4 rounded-2xl shadow-xl flex items-center gap-4">
+            <div id="moon-icon" class="text-4xl">🌑</div>
+            <div>
+                <span class="block text-[10px] text-slate-400 uppercase font-bold">選択日の月相</span>
+                <span id="phase-name" class="font-bold">新月</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Map Container -->
+    <div id="map"></div>
+
+    <script>
+        // 観測地点: 釧路市米町
+        const OBSERVER_LAT = 42.9689954;
+        const OBSERVER_LNG = 144.3731795;
+        
+        let map, moonLine;
+
+        // YYYY-MM-DD形式
+        function getTodayString() {
+            return new Date().toISOString().split('T')[0];
+        }
+
+        // 現在の時刻を0.0〜23.9の数値で取得
+        function getCurrentTimeAsFloat() {
+            const now = new Date();
+            return now.getHours() + (now.getMinutes() / 60);
+        }
+
+        function initMap() {
+            // 初期値を現在の時刻にセット
+            document.getElementById('date-picker').value = getTodayString();
+            document.getElementById('time-slider').value = getCurrentTimeAsFloat();
+
+            // 地図の初期化 (衛星画像)
+            map = L.map('map', {
+                center: [OBSERVER_LAT, OBSERVER_LNG],
+                zoom: 17,
+                zoomControl: false
+            });
+
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri'
+            }).addTo(map);
+
+            L.circleMarker([OBSERVER_LAT, OBSERVER_LNG], {
+                radius: 8, fillColor: "#ff3e00", color: "#fff", weight: 2, opacity: 1, fillOpacity: 0.8
+            }).addTo(map).bindPopup("観測ポイント: 釧路市米町");
+
+            moonLine = L.polyline([], {
+                color: '#fbbf24', weight: 4, opacity: 0.8, className: 'moon-line'
+            }).addTo(map);
+
+            updateMoonPosition();
+        }
+
+        function getMoonPhaseName(phase) {
+            if (phase <= 0.03 || phase > 0.97) return ["新月", "🌑"];
+            if (phase <= 0.22) return ["三日月", "🌙"];
+            if (phase <= 0.28) return ["上弦の月", "🌓"];
+            if (phase <= 0.47) return ["十三夜月", "🌔"];
+            if (phase <= 0.53) return ["満月", "🌕"];
+            if (phase <= 0.72) return ["待宵月", "🌖"];
+            if (phase <= 0.78) return ["下弦の月", "🌗"];
+            return ["有明月", "🌘"];
+        }
+
+        function updateMoonPosition() {
+            const selectedDateVal = document.getElementById('date-picker').value;
+            const selectedTimeVal = parseFloat(document.getElementById('time-slider').value);
+            
+            // 選択された日付に、スライダーの時刻を反映させる
+            const targetDate = new Date(selectedDateVal);
+            const hours = Math.floor(selectedTimeVal);
+            const minutes = Math.floor((selectedTimeVal - hours) * 60);
+            targetDate.setHours(hours, minutes, 0);
+            
+            // 月の位置計算
+            const moonPos = SunCalc.getMoonPosition(targetDate, OBSERVER_LAT, OBSERVER_LNG);
+            const moonIllum = SunCalc.getMoonIllumination(targetDate);
+            
+            const azimuthDeg = (moonPos.azimuth * 180 / Math.PI) + 180; 
+            const altitudeDeg = moonPos.altitude * 180 / Math.PI;
+
+            // UI更新
+            document.getElementById('alt-val').innerText = altitudeDeg.toFixed(1) + "°";
+            document.getElementById('azi-val').innerText = azimuthDeg.toFixed(1) + "°";
+            
+            // 時刻表示をHH:MM形式に
+            const displayH = String(hours).padStart(2, '0');
+            const displayM = String(minutes).padStart(2, '0');
+            document.getElementById('time-display').innerText = `${displayH}:${displayM}`;
+            
+            const fullDateStr = targetDate.toLocaleString('ja-JP', { 
+                year: 'numeric', month: '2-digit', day: '2-digit', 
+                hour: '2-digit', minute: '2-digit' 
+            });
+            document.getElementById('full-date-string').innerText = fullDateStr;
+
+            const altPct = Math.max(0, Math.min(100, (altitudeDeg / 90) * 100));
+            document.getElementById('alt-bar').style.width = altPct + "%";
+            document.getElementById('alt-pct').innerText = Math.round(altPct) + "%";
+            
+            const [phaseName, moonEmoji] = getMoonPhaseName(moonIllum.phase);
+            document.getElementById('phase-name').innerText = phaseName;
+            document.getElementById('moon-icon').innerText = moonEmoji;
+
+            const distance = 0.01; 
+            const endLat = OBSERVER_LAT + (distance * Math.cos(moonPos.azimuth + Math.PI));
+            const endLng = OBSERVER_LNG + (distance * Math.sin(moonPos.azimuth + Math.PI) / Math.cos(OBSERVER_LAT * Math.PI / 180));
+
+            if (altitudeDeg < 0) {
+                moonLine.setStyle({ color: '#475569', opacity: 0.3 });
+                document.getElementById('alt-val').classList.replace('text-yellow-400', 'text-slate-500');
+            } else {
+                moonLine.setStyle({ color: '#fbbf24', opacity: 0.8 });
+                document.getElementById('alt-val').classList.replace('text-slate-500', 'text-yellow-400');
+            }
+
+            moonLine.setLatLngs([[OBSERVER_LAT, OBSERVER_LNG], [endLat, endLng]]);
+        }
+
+        // イベントリスナー
+        document.getElementById('date-picker').addEventListener('change', updateMoonPosition);
+        document.getElementById('time-slider').addEventListener('input', updateMoonPosition);
+
+        document.getElementById('reset-now').addEventListener('click', () => {
+            document.getElementById('date-picker').value = getTodayString();
+            document.getElementById('time-slider').value = getCurrentTimeAsFloat();
+            updateMoonPosition();
+        });
+
+        window.onload = initMap;
+    </script>
+</body>
+</html>
