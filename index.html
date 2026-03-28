@@ -13,10 +13,10 @@
     <style>
         #map { height: 100vh; width: 100%; }
         .glass-panel {
-            background: rgba(15, 23, 42, 0.85);
-            backdrop-filter: blur(12px);
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.3s ease-in-out;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .moon-line {
             stroke-dasharray: 10, 10;
@@ -31,123 +31,139 @@
         }
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            height: 18px;
-            width: 18px;
+            height: 20px;
+            width: 20px;
             border-radius: 50%;
             background: #22d3ee;
             cursor: pointer;
-            box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+            border: 2px solid #0f172a;
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.4);
         }
         .collapsible-content {
-            max-height: 1000px;
+            max-height: 500px;
+            opacity: 1;
             overflow: hidden;
-            transition: max-height 0.3s ease-out, opacity 0.2s;
+            transition: max-height 0.4s ease-in-out, opacity 0.3s ease-in-out, margin 0.4s;
         }
         .collapsible-content.collapsed {
             max-height: 0;
             opacity: 0;
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
             pointer-events: none;
-            margin: 0 !important;
+        }
+        .chevron-icon {
+            transition: transform 0.4s ease;
+        }
+        .chevron-icon.rotated {
+            transform: rotate(180deg);
         }
     </style>
 </head>
-<body class="bg-slate-900 text-white overflow-hidden">
+<body class="bg-slate-900 text-white overflow-hidden text-sans">
 
     <!-- UI Overlay -->
-    <div class="fixed top-2 left-2 right-2 md:right-auto md:w-80 z-[1000] space-y-3">
-        <div class="glass-panel p-4 md:p-5 rounded-2xl shadow-2xl">
-            <!-- Header with Toggle -->
-            <div class="flex justify-between items-start mb-2">
+    <div class="fixed top-2 left-2 right-2 md:right-auto md:w-85 z-[1000] space-y-3">
+        <div class="glass-panel rounded-2xl shadow-2xl overflow-hidden">
+            <!-- Header Area (Clickable to toggle) -->
+            <div id="header-tap-area" class="p-4 md:p-5 pb-2 cursor-pointer hover:bg-white/5 transition-colors flex justify-between items-center">
                 <div>
                     <h1 class="text-lg font-bold flex items-center gap-2">
                         <span>🌙</span> 月の軌道ナビ
                     </h1>
-                    <p class="text-[10px] text-slate-400">北海道釧路市米町 観測ポイント</p>
+                    <p class="text-[10px] text-slate-400 tracking-wider uppercase">Kushiro Yonemachi Point</p>
                 </div>
-                <button id="toggle-ui" class="bg-slate-700/50 hover:bg-slate-600 p-2 rounded-lg transition-colors text-xs" title="表示切替">
-                    <span id="toggle-icon">👁️‍🗨️</span>
-                </button>
+                <div class="flex items-center gap-2 bg-slate-700/40 px-3 py-1.5 rounded-xl border border-white/10">
+                    <span class="text-[10px] font-bold text-slate-300 uppercase tracking-tighter" id="toggle-label">詳細</span>
+                    <svg id="chevron" class="chevron-icon w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </div>
             </div>
 
-            <!-- Collapsible Sections -->
-            <div id="ui-body" class="collapsible-content space-y-4 pt-2">
+            <!-- Collapsible Body -->
+            <div id="ui-body" class="collapsible-content px-4 md:px-5 space-y-4">
                 <!-- Date Selector -->
-                <div class="space-y-1">
-                    <label class="text-[10px] uppercase tracking-wider text-slate-400">日付を選択</label>
+                <div class="space-y-1 mt-2">
+                    <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">日付</label>
                     <input type="date" id="date-picker" 
-                        class="w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-sm text-cyan-400 focus:outline-none">
+                        class="w-full bg-slate-800/80 border border-white/10 rounded-xl p-2.5 text-sm text-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 transition-all">
                 </div>
 
-                <!-- Moon Rise/Set Times -->
-                <div class="grid grid-cols-2 gap-2 text-center border-y border-white/5 py-3">
-                    <div>
-                        <span class="block text-[10px] text-slate-400 uppercase">月の出</span>
-                        <span id="rise-time" class="text-sm font-bold text-emerald-400">--:--</span>
+                <!-- Moon Rise/Set -->
+                <div class="grid grid-cols-2 gap-2 text-center border-y border-white/5 py-4">
+                    <div class="border-r border-white/5">
+                        <span class="block text-[9px] text-slate-500 uppercase font-black mb-1">月の出</span>
+                        <span id="rise-time" class="text-base font-mono font-bold text-emerald-400">--:--</span>
                     </div>
                     <div>
-                        <span class="block text-[10px] text-slate-400 uppercase">月の入り</span>
-                        <span id="set-time" class="text-sm font-bold text-rose-400">--:--</span>
+                        <span class="block text-[9px] text-slate-500 uppercase font-black mb-1">月の入り</span>
+                        <span id="set-time" class="text-base font-mono font-bold text-rose-400">--:--</span>
                     </div>
                 </div>
 
-                <!-- Data Display -->
+                <!-- Detailed Stats Grid -->
                 <div class="grid grid-cols-2 gap-3">
-                    <div class="bg-slate-800/50 p-2 rounded-xl border border-white/5 text-center">
-                        <span class="block text-[10px] text-slate-400">高度</span>
-                        <span id="alt-val" class="text-xl font-mono font-bold text-yellow-400">0.0°</span>
+                    <div class="bg-slate-800/40 p-3 rounded-2xl border border-white/5 flex flex-col items-center justify-center">
+                        <span class="text-[9px] text-slate-500 font-bold uppercase">現在高度</span>
+                        <span id="alt-val" class="text-2xl font-mono font-bold text-yellow-400">0.0°</span>
                     </div>
-                    <div class="bg-slate-800/50 p-2 rounded-xl border border-white/5 text-center">
-                        <span class="block text-[10px] text-slate-400">方位</span>
-                        <span id="azi-val" class="text-xl font-mono font-bold text-blue-400">0.0°</span>
+                    <div class="bg-slate-800/40 p-3 rounded-2xl border border-white/5 flex flex-col items-center justify-center">
+                        <span class="text-[9px] text-slate-500 font-bold uppercase">現在方位</span>
+                        <span id="azi-val" class="text-2xl font-mono font-bold text-blue-400">0.0°</span>
                     </div>
                 </div>
 
-                <!-- Progress Bar -->
-                <div class="relative pt-1">
-                    <div class="flex mb-1 items-center justify-between text-[10px]">
-                        <span class="text-yellow-600 bg-yellow-200/20 px-2 rounded-full font-bold">高さ (垂直)</span>
+                <!-- Vertical Progress -->
+                <div class="relative pb-2">
+                    <div class="flex justify-between text-[10px] mb-1.5 px-1">
+                        <span class="text-slate-400 font-bold">地平線からの高さ</span>
                         <span id="alt-pct" class="text-yellow-400 font-bold">0%</span>
                     </div>
-                    <div class="overflow-hidden h-1.5 rounded bg-slate-700">
-                        <div id="alt-bar" style="width:0%" class="h-full bg-yellow-400 transition-all duration-500"></div>
+                    <div class="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
+                        <div id="alt-bar" class="h-full bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.4)] transition-all duration-500" style="width: 0%"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Time Controls (Always visible or compact) -->
-            <div class="space-y-3 mt-4 pt-2 border-t border-white/10">
+            <!-- Persistent Bottom Controls (Always Visible) -->
+            <div class="p-4 md:p-5 pt-2 space-y-4 border-t border-white/10 bg-white/5">
                 <div class="flex justify-between items-center">
                     <div class="flex flex-col">
-                        <div class="flex items-baseline gap-2">
-                            <span id="time-display" class="font-mono text-2xl text-cyan-400 font-bold">12:00</span>
-                            <!-- Compact Altitude Badge -->
-                            <span id="compact-alt" class="text-xs font-mono font-bold text-yellow-400 bg-yellow-400/10 px-1.5 py-0.5 rounded border border-yellow-400/20">0.0°</span>
+                        <div class="flex items-center gap-3">
+                            <span id="time-display" class="font-mono text-3xl text-cyan-400 font-black tracking-tighter">12:00</span>
+                            <!-- Compact Angle Badge (Always visible) -->
+                            <div id="compact-alt-container" class="flex flex-col items-center bg-yellow-400/10 px-2 py-0.5 rounded-lg border border-yellow-400/20">
+                                <span class="text-[8px] text-yellow-500/80 font-black uppercase leading-none mb-0.5">高度</span>
+                                <span id="compact-alt" class="text-sm font-mono font-bold text-yellow-400 leading-none">0.0°</span>
+                            </div>
                         </div>
-                        <span id="full-date-string" class="text-[9px] text-slate-400 font-mono">----/--/--</span>
+                        <span id="full-date-string" class="text-[10px] text-slate-500 font-mono mt-1 tracking-widest uppercase">2024/01/01</span>
                     </div>
-                    <button id="play-pause" class="bg-cyan-600 hover:bg-cyan-500 text-white p-2 px-5 rounded-xl flex items-center gap-2 transition-all active:scale-95 shadow-lg">
-                        <span id="play-icon" class="text-sm">▶</span>
-                        <span id="play-text" class="text-xs font-bold uppercase">再生</span>
+                    
+                    <button id="play-pause" class="bg-cyan-600 hover:bg-cyan-500 text-white w-12 h-12 rounded-2xl flex items-center justify-center transition-all active:scale-90 shadow-xl shadow-cyan-900/40">
+                        <span id="play-icon" class="text-xl">▶</span>
                     </button>
                 </div>
 
-                <input type="range" id="time-slider" min="0" max="23.99" step="0.01" value="12" 
-                    class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500">
-                
-                <div class="flex justify-between text-[10px] text-slate-500">
-                    <span>0:00</span>
-                    <button id="reset-now" class="hover:text-white transition-colors underline">現在時刻</button>
-                    <span>24:00</span>
+                <div class="space-y-1">
+                    <input type="range" id="time-slider" min="0" max="23.99" step="0.01" value="12" 
+                        class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                    <div class="flex justify-between text-[10px] text-slate-500 font-bold px-1">
+                        <span>0:00</span>
+                        <button id="reset-now" class="text-cyan-500/70 hover:text-cyan-400 transition-colors uppercase tracking-widest">現在時刻へ</button>
+                        <span>24:00</span>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Moon Phase Card (Collapsible) -->
-        <div id="moon-phase-card" class="glass-panel p-3 rounded-2xl shadow-xl flex items-center gap-3 collapsible-content">
-            <div id="moon-icon" class="text-3xl">🌑</div>
-            <div>
-                <span class="block text-[9px] text-slate-400 uppercase font-bold">月相</span>
-                <span id="phase-name" class="font-bold text-sm">新月</span>
+        <!-- Moon Phase (Small Floating Card) -->
+        <div id="moon-phase-card" class="glass-panel p-3 rounded-2xl shadow-xl flex items-center gap-3 collapsible-content border-l-4 border-l-cyan-500">
+            <div id="moon-icon" class="text-4xl filter drop-shadow-md">🌑</div>
+            <div class="flex flex-col">
+                <span class="text-[9px] text-slate-500 uppercase font-black tracking-widest">選択日の月相</span>
+                <span id="phase-name" class="font-bold text-sm text-slate-200">新月</span>
             </div>
         </div>
     </div>
@@ -188,7 +204,7 @@
             }).addTo(map);
 
             L.circleMarker([OBSERVER_LAT, OBSERVER_LNG], {
-                radius: 8, fillColor: "#ff3e00", color: "#fff", weight: 2, opacity: 1, fillOpacity: 0.8
+                radius: 8, fillColor: "#ff3e00", color: "#fff", weight: 3, opacity: 1, fillOpacity: 0.9
             }).addTo(map);
 
             moonLine = L.polyline([], {
@@ -236,16 +252,13 @@
             document.getElementById('rise-time').innerText = formatTime(moonTimes.rise);
             document.getElementById('set-time').innerText = formatTime(moonTimes.set);
             
-            // Update altitude displays (both main and compact)
             const altString = altitudeDeg.toFixed(1) + "°";
             document.getElementById('alt-val').innerText = altString;
             document.getElementById('compact-alt').innerText = altString;
-            
             document.getElementById('azi-val').innerText = azimuthDeg.toFixed(1) + "°";
             document.getElementById('time-display').innerText = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
             
-            const fullDateStr = targetDate.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' });
-            document.getElementById('full-date-string').innerText = fullDateStr;
+            document.getElementById('full-date-string').innerText = targetDate.toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' });
 
             const altPct = Math.max(0, Math.min(100, (altitudeDeg / 90) * 100));
             document.getElementById('alt-bar').style.width = altPct + "%";
@@ -259,19 +272,17 @@
             const endLat = OBSERVER_LAT + (distance * Math.cos(moonPos.azimuth + Math.PI));
             const endLng = OBSERVER_LNG + (distance * Math.sin(moonPos.azimuth + Math.PI) / Math.cos(OBSERVER_LAT * Math.PI / 180));
 
-            // Visibility styling for both displays
+            const compactAltBadge = document.getElementById('compact-alt-container');
             if (altitudeDeg < 0) {
                 moonLine.setStyle({ color: '#475569', opacity: 0.3 });
-                document.getElementById('alt-val').classList.replace('text-yellow-400', 'text-slate-500');
-                document.getElementById('compact-alt').classList.replace('text-yellow-400', 'text-slate-500');
-                document.getElementById('compact-alt').classList.replace('bg-yellow-400/10', 'bg-slate-500/10');
-                document.getElementById('compact-alt').classList.replace('border-yellow-400/20', 'border-slate-500/20');
+                document.getElementById('alt-val').className = "text-2xl font-mono font-bold text-slate-500";
+                compactAltBadge.className = "flex flex-col items-center bg-slate-500/10 px-2 py-0.5 rounded-lg border border-slate-500/20";
+                document.getElementById('compact-alt').className = "text-sm font-mono font-bold text-slate-500 leading-none";
             } else {
                 moonLine.setStyle({ color: '#fbbf24', opacity: 0.8 });
-                document.getElementById('alt-val').classList.replace('text-slate-500', 'text-yellow-400');
-                document.getElementById('compact-alt').classList.replace('text-slate-500', 'text-yellow-400');
-                document.getElementById('compact-alt').classList.replace('bg-slate-500/10', 'bg-yellow-400/10');
-                document.getElementById('compact-alt').classList.replace('border-slate-500/20', 'border-yellow-400/20');
+                document.getElementById('alt-val').className = "text-2xl font-mono font-bold text-yellow-400";
+                compactAltBadge.className = "flex flex-col items-center bg-yellow-400/10 px-2 py-0.5 rounded-lg border border-yellow-400/20";
+                document.getElementById('compact-alt').className = "text-sm font-mono font-bold text-yellow-400 leading-none";
             }
 
             moonLine.setLatLngs([[OBSERVER_LAT, OBSERVER_LNG], [endLat, endLng]]);
@@ -293,38 +304,36 @@
             requestAnimationFrame(animate);
         }
 
-        // Toggle UI Visibility
-        document.getElementById('toggle-ui').addEventListener('click', () => {
+        // Toggle UI logic
+        const toggleUI = () => {
             const body = document.getElementById('ui-body');
             const phase = document.getElementById('moon-phase-card');
-            const icon = document.getElementById('toggle-icon');
+            const chevron = document.getElementById('chevron');
+            const label = document.getElementById('toggle-label');
             
             const isCollapsed = body.classList.toggle('collapsed');
             phase.classList.toggle('collapsed');
+            chevron.classList.toggle('rotated');
             
-            icon.innerText = isCollapsed ? "➕" : "👁️‍🗨️";
-        });
+            label.innerText = isCollapsed ? "開く" : "詳細";
+        };
 
+        document.getElementById('header-tap-area').addEventListener('click', toggleUI);
         document.getElementById('date-picker').addEventListener('change', updateMoonPosition);
         document.getElementById('time-slider').addEventListener('input', updateMoonPosition);
 
         document.getElementById('play-pause').addEventListener('click', () => {
             isPlaying = !isPlaying;
             document.getElementById('play-icon').innerText = isPlaying ? "⏸" : "▶";
-            document.getElementById('play-text').innerText = isPlaying ? "停止" : "再生";
             const btn = document.getElementById('play-pause');
-            if (isPlaying) {
-                btn.classList.replace('bg-cyan-600', 'bg-amber-600');
-            } else {
-                btn.classList.replace('bg-amber-600', 'bg-cyan-600');
-            }
+            btn.className = isPlaying 
+                ? "bg-amber-600 hover:bg-amber-500 text-white w-12 h-12 rounded-2xl flex items-center justify-center transition-all active:scale-90 shadow-xl shadow-amber-900/40"
+                : "bg-cyan-600 hover:bg-cyan-500 text-white w-12 h-12 rounded-2xl flex items-center justify-center transition-all active:scale-90 shadow-xl shadow-cyan-900/40";
         });
 
         document.getElementById('reset-now').addEventListener('click', () => {
             isPlaying = false;
             document.getElementById('play-icon').innerText = "▶";
-            document.getElementById('play-text').innerText = "再生";
-            document.getElementById('play-pause').classList.add('bg-cyan-600');
             document.getElementById('date-picker').value = getTodayString();
             document.getElementById('time-slider').value = getCurrentTimeAsFloat();
             updateMoonPosition();
