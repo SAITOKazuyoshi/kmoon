@@ -49,6 +49,18 @@
                         class="w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-sm text-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50">
                 </div>
 
+                <!-- Moon Rise/Set Times -->
+                <div class="grid grid-cols-2 gap-2 text-center border-y border-white/5 py-3">
+                    <div>
+                        <span class="block text-[10px] text-slate-400 uppercase">月の出</span>
+                        <span id="rise-time" class="text-sm font-bold text-emerald-400">--:--</span>
+                    </div>
+                    <div>
+                        <span class="block text-[10px] text-slate-400 uppercase">月の入り</span>
+                        <span id="set-time" class="text-sm font-bold text-rose-400">--:--</span>
+                    </div>
+                </div>
+
                 <!-- Data Display -->
                 <div class="grid grid-cols-2 gap-4">
                     <div class="bg-slate-800/50 p-3 rounded-xl border border-white/5">
@@ -169,6 +181,12 @@
             return ["有明月", "🌘"];
         }
 
+        function formatTime(date) {
+            if (!date) return "--:--";
+            return date.getHours().toString().padStart(2, '0') + ":" + 
+                   date.getMinutes().toString().padStart(2, '0');
+        }
+
         function updateMoonPosition() {
             const selectedDateVal = document.getElementById('date-picker').value;
             const selectedTimeVal = parseFloat(document.getElementById('time-slider').value);
@@ -183,10 +201,17 @@
             const moonPos = SunCalc.getMoonPosition(targetDate, OBSERVER_LAT, OBSERVER_LNG);
             const moonIllum = SunCalc.getMoonIllumination(targetDate);
             
+            // 月の出・月の入りの計算
+            const moonTimes = SunCalc.getMoonTimes(targetDate, OBSERVER_LAT, OBSERVER_LNG);
+            
             const azimuthDeg = (moonPos.azimuth * 180 / Math.PI) + 180; 
             const altitudeDeg = moonPos.altitude * 180 / Math.PI;
 
-            // UI更新
+            // UI更新: 月の出・入り
+            document.getElementById('rise-time').innerText = formatTime(moonTimes.rise);
+            document.getElementById('set-time').innerText = formatTime(moonTimes.set);
+
+            // UI更新: 高度・方位
             document.getElementById('alt-val').innerText = altitudeDeg.toFixed(1) + "°";
             document.getElementById('azi-val').innerText = azimuthDeg.toFixed(1) + "°";
             
